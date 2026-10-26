@@ -1,8 +1,8 @@
 'use client';
 
 import { Canvas, useThree } from '@react-three/fiber';
-import { useEffect } from 'react';
-import type { Camera } from 'three';
+import { useCallback, useEffect } from 'react';
+import type { PerspectiveCamera } from 'three';
 import ViewerScene from './ViewerScene';
 import type { CarDefinition } from '@/types/car';
 
@@ -20,7 +20,7 @@ const VIEW_POSITIONS: Record<
 interface ViewerCanvasProps {
   model: CarDefinition;
   viewMode: VehicleViewMode;
-  bindCamera: (camera: Camera) => void;
+  bindCamera: (camera: PerspectiveCamera) => void;
   bindControls: (controls: import('three-stdlib').OrbitControls) => void;
 }
 
@@ -30,12 +30,27 @@ export default function ViewerCanvas({
   bindCamera,
   bindControls,
 }: ViewerCanvasProps) {
-  const camera = useThree((state) => state.camera as Camera);
+  const camera = useThree((state) => state.camera as PerspectiveCamera);
 
   // Expose the live camera to the zoom controller.
   useEffect(() => {
     bindCamera(camera);
   }, [camera, bindCamera]);
+
+  // Reframe the camera to the model's bounding box once it loads so the
+  // vehicle is properly sized regardless of the source GLB scale.
+  const reframe = useCallback(
+    (box: { size: number }) => {
+      const maxDim = Math.max(box.size, 0.1);
+      const distance = Math.min(Math.max(maxDim * 2.2, 3.5), 12);
+      const height = 1.2 + maxDim * 0.4;
+
+      camera.position.set(0, height, distance);
+      camera.lookAt(0, maxDim * 0.35, 0);
+      camera.updateProjectionMatrix();
+    },
+    [camera],
+  );
 
   return (
     <Canvas
@@ -43,7 +58,7 @@ export default function ViewerCanvas({
         position: VIEW_POSITIONS[viewMode],
         fov: 35,
         near: 0.1,
-        far: 100,
+        far: 200,
       }}
       dpr={[1, 1.75]}
       gl={{
@@ -56,6 +71,7 @@ export default function ViewerCanvas({
         model={model}
         viewMode={viewMode}
         bindControls={bindControls}
+        onModelReady={reframe}
       />
     </Canvas>
   );

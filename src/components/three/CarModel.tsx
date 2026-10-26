@@ -1,9 +1,9 @@
 'use client';
 
 import { useGLTF } from '@react-three/drei';
-import { useMemo } from 'react';
+import { forwardRef, useMemo } from 'react';
 import { SkeletonUtils } from 'three-stdlib';
-import type { Group } from 'three';
+import type { Group, Object3D } from 'three';
 import type { CarDefinition } from '@/types/car';
 
 interface CarModelProps {
@@ -21,29 +21,37 @@ interface CarModelProps {
  *   times without mutation problems.
  * - Preserves original material assignments by default.
  * - Accepts per-model scale, position, and rotation.
+ * - Forwards a ref to the wrapping Group so callers can measure the
+ *   model's bounding box (used for camera framing).
  *
  * The model's actual scale, origin, and wheel-ground alignment are
  * configured through the CarDefinition rather than being arbitrarily
  * normalized.
  */
-export default function CarModel({
-  model,
-  scale = model.modelScale,
-  position = [0, 0, 0],
-  rotation = model.initialRotation,
-}: CarModelProps) {
-  const { scene } = useGLTF(model.modelPath);
+const CarModel = forwardRef<Object3D, CarModelProps>(
+  function CarModel(
+    { model, scale = model.modelScale, position = [0, 0, 0], rotation = model.initialRotation },
+    ref,
+  ) {
+    const { scene } = useGLTF(model.modelPath);
 
-  const clonedScene = useMemo(() => {
-    return SkeletonUtils.clone(scene) as Group;
-  }, [scene]);
+    const clonedScene = useMemo(() => {
+      return SkeletonUtils.clone(scene) as Group;
+    }, [scene]);
 
-  return (
-    <primitive
-      object={clonedScene}
-      scale={scale}
-      position={position}
-      rotation={rotation}
-    />
-  );
-}
+    return (
+      <group ref={ref}>
+        <primitive
+          object={clonedScene}
+          scale={scale}
+          position={position}
+          rotation={rotation}
+        />
+      </group>
+    );
+  },
+);
+
+CarModel.displayName = 'CarModel';
+
+export default CarModel;
