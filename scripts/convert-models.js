@@ -23,8 +23,10 @@ const MAP = [
 
 const GLTF_MAGIC = 0x46546c67; // "glTF"
 const GLTF_VERSION = 2;
-const CHUNK_JSON = 0x0;
-const CHUNK_BIN = 0x1;
+// GLB chunk type magic numbers (ASCII codes stored as UInt32LE):
+//  "JSON" -> 0x4E4F534A,  "BIN\0" -> 0x004E4942
+const CHUNK_JSON = 0x4e4f534a;
+const CHUNK_BIN = 0x004e4942;
 
 function align4(n) {
   return Math.ceil(n / 4) * 4;
