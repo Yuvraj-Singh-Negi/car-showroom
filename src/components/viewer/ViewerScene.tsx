@@ -2,7 +2,7 @@
 
 import { Environment, OrbitControls } from '@react-three/drei';
 import { Suspense, useCallback, useRef } from 'react';
-import { Box3, Vector3, type Object3D } from 'three';
+import { Box3, type Object3D, Vector3 } from 'three';
 import { useFrame } from '@react-three/fiber';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import CarModel from '@/components/three/CarModel';
@@ -18,11 +18,14 @@ const VIEW_TARGETS: Record<VehicleViewMode, [number, number, number]> = {
   'close-up': [0, 1.1, 0],
 };
 
+/** Target size for the vehicle's largest dimension (in world units). */
+const TARGET_MAX_DIM = 4.5;
+
 interface ViewerSceneProps {
   model: CarDefinition;
   viewMode: VehicleViewMode;
   bindControls: (controls: OrbitControlsImpl) => void;
-  onModelReady?: (boundingBox: { min: [number, number, number]; max: [number, number, number]; size: number }) => void;
+  onModelReady?: (box: { size: number }) => void;
 }
 
 export default function ViewerScene({
@@ -46,25 +49,27 @@ export default function ViewerScene({
     [bindControls],
   );
 
-  // Compute the model's bounding box once it loads and frame the camera
-  // so the vehicle is properly sized regardless of the source GLB scale.
+  // Compute the model's bounding box once it loads, scale it to a proper
+  // display size, and notify the parent so the camera can be reframed.
   useFrame(() => {
-    if (framed.current || !modelRef.current) return;
+    if (framed.current || !modelRef.current || !onModelReady) return;
 
-    const box = new Box3().setFromObject(modelRef.current);
-    const center = box.getCenter(new Vector3());
-    const size = box.getSize(new Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z);
-    const diameter = Math.max(maxDim, 0.1);
+    try {
+      const box = new Box3().setFromObject(modelRef.current);
+      const size = box.getSize(new Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z, 0.1);
 
-    framed.current = true;
+      if (!isFinite(maxDim) || maxDim <= 0) return;
 
-    if (onModelReady) {
-      onModelReady({
-        min: [center.x, center.y, center.z],
-        max: [center.x, center.y, center.z],
-        size: diameter,
-      });
+      // Scale the model so its largest dimension matches TARGET_MAX_DIM.
+      const scale = TARGET_MAX_DIM / maxDim;
+      modelRef.current.scale.set(scale, scale, scale);
+      modelRef.current.updateMatrixWorld();
+
+      framed.current = true;
+      onModelReady({ size: TARGET_MAX_DIM });
+    } catch {
+      framed.current = true;
     }
   });
 

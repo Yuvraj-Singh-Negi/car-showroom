@@ -12,6 +12,7 @@ import ViewerControls from './ViewerControls';
 import RotationIndicator from './RotationIndicator';
 import LoadingState from '@/components/ui/LoadingState';
 import Button from '@/components/ui/Button';
+import ModelErrorBoundary from '@/components/three/ModelErrorBoundary';
 import { useCameraZoom } from '@/hooks/useCameraZoom';
 import { getCarOrFallback, isValidModelId } from '@/lib/cars';
 import type { CarDefinition } from '@/types/car';
@@ -88,12 +89,32 @@ export default function ViewerExperience({ initialCar }: ViewerExperienceProps) 
       </header>
 
       <main className="flex-1 relative">
-        <ViewerCanvas
-          model={car}
-          viewMode={viewMode}
-          bindCamera={bindCamera}
-          bindControls={bindControls}
-        />
+        <ModelErrorBoundary
+          onError={(path) => {
+            setErrorPath(path);
+            setLoadStatus('error');
+          }}
+          fallback={
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center text-center p-6">
+              <p className="text-[11px] md:text-sm text-muted mb-4">
+                VEHICLE MODEL UNAVAILABLE
+              </p>
+              <p className="text-[11px] md:text-sm text-foreground mb-6">
+                {errorPath ?? 'The 3D scene could not be rendered.'}
+              </p>
+              <Button variant="outline" size="sm" onClick={handleRetry}>
+                RETRY
+              </Button>
+            </div>
+          }
+        >
+          <ViewerCanvas
+            model={car}
+            viewMode={viewMode}
+            bindCamera={bindCamera}
+            bindControls={bindControls}
+          />
+        </ModelErrorBoundary>
 
         {/* Left: specifications panel */}
         <div
@@ -128,19 +149,6 @@ export default function ViewerExperience({ initialCar }: ViewerExperienceProps) 
                 className="pointer-events-auto flex flex-col items-center gap-2"
               >
                 <LoadingState label="PREPARING VEHICLE" />
-              </motion.div>
-            )}
-            {loadStatus === 'error' && errorPath && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="pointer-events-auto flex flex-col items-center gap-3 text-center"
-              >
-                <p className="text-[11px] md:text-sm text-muted">{errorPath}</p>
-                <Button variant="outline" size="sm" onClick={handleRetry}>
-                  RETRY
-                </Button>
               </motion.div>
             )}
           </AnimatePresence>

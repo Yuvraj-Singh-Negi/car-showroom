@@ -9,10 +9,13 @@ import SceneLighting from '@/components/three/SceneLighting';
 import GroundPlane from '@/components/three/GroundPlane';
 import type { CarDefinition } from '@/types/car';
 
+/** Target size for the vehicle's largest dimension (in world units). */
+const TARGET_MAX_DIM = 4.5;
+
 /**
- * Computes the model's bounding box after load and reframes the camera
- * so the vehicle is properly sized regardless of the source GLB scale.
- * Must be rendered inside <Canvas> for useFrame/useThree to work.
+ * Computes the model's bounding box after load, scales it to a proper
+ * display size, and reframes the camera so the vehicle is well-framed
+ * regardless of the source GLB's original scale. Must be inside <Canvas>.
  */
 function ModelFramer({ model }: { model: CarDefinition }) {
   const camera = useThree((state) => state.camera);
@@ -22,17 +25,29 @@ function ModelFramer({ model }: { model: CarDefinition }) {
   useFrame(() => {
     if (framed.current || !modelRef.current) return;
 
-    const box = new Box3().setFromObject(modelRef.current);
-    const size = box.getSize(new Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z, 0.1);
+    try {
+      const box = new Box3().setFromObject(modelRef.current);
+      const size = box.getSize(new Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z, 0.1);
 
-    framed.current = true;
+      if (!isFinite(maxDim) || maxDim <= 0) return;
 
-    const distance = Math.min(Math.max(maxDim * 2.2, 4), 10);
-    const height = 1.2 + maxDim * 0.4;
+      // Scale the model so its largest dimension matches TARGET_MAX_DIM.
+      const scale = TARGET_MAX_DIM / maxDim;
+      modelRef.current.scale.set(scale, scale, scale);
+      modelRef.current.updateMatrixWorld();
 
-    camera.position.set(0, height, distance);
-    camera.lookAt(0, maxDim * 0.35, 0);
+      framed.current = true;
+
+      // Reframe the camera to the scaled model.
+      const distance = Math.min(Math.max(TARGET_MAX_DIM * 2.2, 4), 10);
+      const height = 1.2 + TARGET_MAX_DIM * 0.4;
+
+      camera.position.set(0, height, distance);
+      camera.lookAt(0, TARGET_MAX_DIM * 0.35, 0);
+    } catch {
+      framed.current = true;
+    }
   });
 
   return <CarModel model={model} ref={modelRef} />;
