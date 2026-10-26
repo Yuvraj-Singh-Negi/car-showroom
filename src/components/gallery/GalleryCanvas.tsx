@@ -1,8 +1,9 @@
 'use client';
 
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { Environment, ContactShadows } from '@react-three/drei';
-import { Suspense } from 'react';
+import { Suspense, useRef } from 'react';
+import { Box3, type Object3D, Vector3 } from 'three';
 import CarModel from '@/components/three/CarModel';
 import SceneLighting from '@/components/three/SceneLighting';
 import GroundPlane from '@/components/three/GroundPlane';
@@ -13,13 +14,36 @@ interface GalleryCanvasProps {
 }
 
 export default function GalleryCanvas({ model }: GalleryCanvasProps) {
+  const camera = useThree((state) => state.camera);
+  const modelRef = useRef<Object3D | null>(null);
+  const framed = useRef(false);
+
+  // Compute the model's bounding box once it loads and frame the camera
+  // so the vehicle is properly sized regardless of the source GLB scale.
+  useFrame(() => {
+    if (framed.current || !modelRef.current) return;
+
+    const box = new Box3().setFromObject(modelRef.current);
+    const size = box.getSize(new Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z, 0.1);
+
+    framed.current = true;
+
+    // Position camera at a distance that frames the model nicely.
+    const distance = Math.min(Math.max(maxDim * 2.2, 4), 10);
+    const height = 1.2 + maxDim * 0.4;
+
+    camera.position.set(0, height, distance);
+    camera.lookAt(0, maxDim * 0.35, 0);
+  });
+
   return (
     <Canvas
       camera={{
         position: [0, 1.6, 7],
         fov: 35,
         near: 0.1,
-        far: 100,
+        far: 200,
       }}
       dpr={[1, 1.75]}
       gl={{
@@ -37,7 +61,7 @@ export default function GalleryCanvas({ model }: GalleryCanvasProps) {
 
       <Suspense fallback={null}>
         <Environment preset="studio" />
-        <CarModel model={model} />
+        <CarModel model={model} ref={modelRef} />
         <ContactShadows
           position={[0, -0.02, 0]}
           opacity={0.22}
