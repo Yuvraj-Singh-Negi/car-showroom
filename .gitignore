@@ -33,6 +33,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# raw model sources (not needed at runtime; only public/models/*.glb is used)
+/models/
+
 # vercel
 .vercel
 
