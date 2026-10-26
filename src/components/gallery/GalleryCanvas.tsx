@@ -9,17 +9,16 @@ import SceneLighting from '@/components/three/SceneLighting';
 import GroundPlane from '@/components/three/GroundPlane';
 import type { CarDefinition } from '@/types/car';
 
-interface GalleryCanvasProps {
-  model: CarDefinition;
-}
-
-export default function GalleryCanvas({ model }: GalleryCanvasProps) {
+/**
+ * Computes the model's bounding box after load and reframes the camera
+ * so the vehicle is properly sized regardless of the source GLB scale.
+ * Must be rendered inside <Canvas> for useFrame/useThree to work.
+ */
+function ModelFramer({ model }: { model: CarDefinition }) {
   const camera = useThree((state) => state.camera);
   const modelRef = useRef<Object3D | null>(null);
   const framed = useRef(false);
 
-  // Compute the model's bounding box once it loads and frame the camera
-  // so the vehicle is properly sized regardless of the source GLB scale.
   useFrame(() => {
     if (framed.current || !modelRef.current) return;
 
@@ -29,7 +28,6 @@ export default function GalleryCanvas({ model }: GalleryCanvasProps) {
 
     framed.current = true;
 
-    // Position camera at a distance that frames the model nicely.
     const distance = Math.min(Math.max(maxDim * 2.2, 4), 10);
     const height = 1.2 + maxDim * 0.4;
 
@@ -37,6 +35,14 @@ export default function GalleryCanvas({ model }: GalleryCanvasProps) {
     camera.lookAt(0, maxDim * 0.35, 0);
   });
 
+  return <CarModel model={model} ref={modelRef} />;
+}
+
+interface GalleryCanvasProps {
+  model: CarDefinition;
+}
+
+export default function GalleryCanvas({ model }: GalleryCanvasProps) {
   return (
     <Canvas
       camera={{
@@ -61,7 +67,7 @@ export default function GalleryCanvas({ model }: GalleryCanvasProps) {
 
       <Suspense fallback={null}>
         <Environment preset="studio" />
-        <CarModel model={model} ref={modelRef} />
+        <ModelFramer model={model} />
         <ContactShadows
           position={[0, -0.02, 0]}
           opacity={0.22}
